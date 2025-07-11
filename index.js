@@ -12,7 +12,7 @@ const ZIP_CODE = process.env.ZIP_CODE || '90210';
 const WS4KP_HOST = process.env.WS4KP_HOST || 'localhost';
 const WS4KP_PORT = process.env.WS4KP_PORT || '8080';
 const STREAM_PORT = process.env.STREAM_PORT || '9798';
-const WS4KP_URL = `http://${WS4KP_HOST}:${WS4KP_PORT}`;
+const WS4KP_URL = `${WS4KP_HOST}:${WS4KP_PORT}`;
 const HLS_SETUP_DELAY = 2000;
 const FRAME_RATE = process.env.FRAME_RATE || 10;
 
@@ -264,7 +264,7 @@ const { cpus, memoryMB } = getContainerLimits();
 console.log(`Running with ${cpus} CPU cores, ${memoryMB}MB RAM`);
 
 app.listen(STREAM_PORT, async () => {
-  console.log(`Streaming server running on port ${STREAM_PORT}`);
+  console.log(`Streaming server running on port ${STREAM_PORT} attempting to connected with ws4 @ ${WS4KP_URL}`);
   await startTranscoding();
 });
 
