@@ -18,10 +18,8 @@ libasound2 \
 
 WORKDIR /app
 COPY package*.json ./
-RUN ls -l
-RUN ls -l /app
 
-RUN npm ci --verbose
+RUN npm install --verbose
 
 # Copy application code, music, and logo files
 COPY . .
