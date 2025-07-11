@@ -25,9 +25,9 @@ RUN chromium --version
 
 WORKDIR /app
 
-COPY package.json package-lock.json ./
+COPY package*.json ./
 
-RUN npm ci --verbose
+RUN npm install --verbose
 
 # Copy the rest of the app
 COPY . .
