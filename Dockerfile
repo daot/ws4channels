@@ -17,8 +17,9 @@ libasound2 \
 && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
-COPY package*.json ./
+COPY package.json package-lock.json ./
 RUN ls -l
+RUN ls -l /app
 
 RUN npm ci --verbose
 
