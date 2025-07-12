@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { PassThrough } = require('stream');
 const os = require('os');
+const http = require('http');
 
 const app = express();
 
@@ -123,6 +124,32 @@ function generateXMLTV(host) {
   return xml;
 }
 
+async function waitForWS4KP(timeout = 120000, interval = 2000) {
+  const start = Date.now();
+  const url = `http://${WS4KP_HOST}:${WS4KP_PORT}/`;
+  while (Date.now() - start < timeout) {
+    try {
+      await new Promise((resolve, reject) => {
+        const req = http.get(url, res => {
+          if (res.statusCode >= 200 && res.statusCode < 400) resolve();
+          else reject();
+        });
+        req.on('error', reject);
+        req.setTimeout(2000, () => {
+          req.abort();
+          reject();
+        });
+      });
+      console.log('WS4KP is up!');
+      return;
+    } catch {
+      console.log('Waiting for WS4KP to be available...');
+      await waitFor(interval);
+    }
+  }
+  throw new Error('WS4KP did not become available in time.');
+}
+
 async function startBrowser() {
   if (browser) await browser.close().catch(() => {});
 
@@ -133,32 +160,68 @@ async function startBrowser() {
       '--disable-setuid-sandbox',
       '--disable-infobars',
       '--ignore-certificate-errors',
-      '--window-size=1280,720'
+      '--window-size=1280,720',
+      '--disable-web-security',
+      '--disable-features=VizDisplayCompositor'
     ],
     defaultViewport: null
   });
 
   page = await browser.newPage();
-  await page.goto(WS4KP_URL, { waitUntil: 'networkidle2', timeout: 30000 });
-
+  
+  // Set longer timeout and better error handling
+  page.setDefaultTimeout(60000);
+  page.setDefaultNavigationTimeout(60000);
+  
   try {
-    const zipInput = await page.waitForSelector('input[placeholder="Zip or City, State"], input', { timeout: 5000 });
-    if (zipInput) {
-      await zipInput.type(ZIP_CODE, { delay: 100 });
-      await waitFor(1000);
-      await page.keyboard.press('ArrowDown');
-      await waitFor(500);
-      const goButton = await page.$('button[type="submit"]');
-      if (goButton) await goButton.click();
-      else await zipInput.press('Enter');
-      await page.waitForSelector('div.weather-display, #weather-content', { timeout: 30000 });
+    console.log('Navigating to WS4KP...');
+    await page.goto(WS4KP_URL, { 
+      waitUntil: 'networkidle0', 
+      timeout: 60000 
+    });
+    
+    console.log('WS4KP page loaded successfully');
+    
+    // Wait a bit for any redirects to complete
+    await waitFor(3000);
+    
+    // Try to find and interact with the zip input if it exists
+    try {
+      const zipInput = await page.waitForSelector('input[placeholder*="Zip"], input[placeholder*="City"], input[type="text"]', { timeout: 10000 });
+      if (zipInput) {
+        console.log('Found zip input, entering zip code...');
+        await zipInput.click();
+        await zipInput.type(ZIP_CODE, { delay: 100 });
+        await waitFor(1000);
+        await page.keyboard.press('ArrowDown');
+        await waitFor(500);
+        
+        const goButton = await page.$('button[type="submit"]');
+        if (goButton) {
+          await goButton.click();
+        } else {
+          await zipInput.press('Enter');
+        }
+        
+        // Wait for weather content to load
+        await page.waitForSelector('div.weather-display, #weather-content, .weather-info', { timeout: 30000 });
+        console.log('Weather content loaded');
+      }
+    } catch (zipError) {
+      console.log('No zip input found or already configured, continuing...');
     }
-  } catch {}
+    
+  } catch (navigationError) {
+    console.error('Navigation error:', navigationError.message);
+    // Try to continue anyway - the page might still be usable
+  }
 
   await page.setViewport({ width: 1280, height: 720 });
+  console.log('Browser setup complete');
 }
 
 async function startTranscoding() {
+  await waitForWS4KP();
   await startBrowser();
   createAudioInputFile();
 

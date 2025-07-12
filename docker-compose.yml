@@ -1,0 +1,50 @@
+version: '3.8'
+
+services:
+  weatherstar-combined:
+    build:
+      context: .
+      dockerfile: Dockerfile.combined
+    container_name: weatherstar-combined
+    restart: unless-stopped
+    ports:
+      - "80:80"      # Main web interface (nginx proxy)
+      - "8080:8080"  # WS4KP direct access
+      - "9798:9798"  # ws4channels direct access
+    environment:
+      # WS4KP environment variables
+      - WSQS_latLonQuery=${ZIP_CODE:-"90210"}
+      - WSQS_hazards_checkbox=false
+      - WSQS_current_weather_checkbox=true
+      - WSQS_hourly_checkbox=true
+      - WSQS_hourly_graph_checkbox=true
+      - WSQS_travel_checkbox=false
+      - WSQS_regional_forecast_checkbox=true
+      - WSQS_local_forecast_checkbox=true
+      - WSQS_extended_forecast_checkbox=true
+      - WSQS_almanac_checkbox=false
+      - WSQS_spc_outlook_checkbox=true
+      - WSQS_radar_checkbox=true
+      - WSQS_settings_wide_checkbox=false
+      - WSQS_settings_kiosk_checkbox=false
+      - WSQS_settings_scanLines_checkbox=false
+      - WSQS_settings_speed_select=1.00
+      - WSQS_settings_units_select=us
+      
+      # ws4channels environment variables
+      - ZIP_CODE=${ZIP_CODE:-"90210"}
+      - WS4KP_HOST=localhost
+      - WS4KP_PORT=8080
+      - STREAM_PORT=9798
+      - FRAME_RATE=10
+    volumes:
+      # Mount music directory for custom music
+      - ./music:/app/music:ro
+      # Mount logo directory for custom logo
+      - ./logo:/app/logo:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s 
